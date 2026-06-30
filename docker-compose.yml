@@ -1,0 +1,48 @@
+services:
+  planka-mcp:
+    image: chmald/planka-mcp:latest
+    container_name: planka-mcp
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Reach Planka over the shared Docker network — NOT the public URL or host
+      # loopback. Planka is bound to 127.0.0.1:2769 on the host, so the only way
+      # in from another container is the container name on Planka's network.
+      PLANKA_BASE_URL: "http://planka-planka-1:1337"
+      PLANKA_API_KEY: "${PLANKA_API_KEY}"
+
+      # A long-lived container needs a network transport (stdio requires a client
+      # attached to stdin, which a detached container does not have).
+      MCP_TRANSPORT: "sse"
+      MCP_PORT: "3001"
+
+      # Tool surface. Default = 10 core tools. Uncomment to widen; leave admin OFF.
+      # ENABLE_OPTIONAL_TOOLS: "true"
+      # ENABLE_ALL_TOOLS: "true"
+      # ENABLE_ADMIN_TOOLS: "true"   # user/webhook/config mgmt — keep disabled
+
+    expose:
+      - "3001"
+
+    # Option A (default): publish to host loopback so a host-side nginx (or local
+    # testing) can reach it at 127.0.0.1:3001. Comment this out if you instead
+    # front it with a Dockerized reverse proxy on the `proxy` network below.
+    ports:
+      - "127.0.0.1:3001:3001"
+
+    networks:
+      - planka_default      # join Planka's existing network to reach the container
+      # - proxy             # uncomment if your reverse proxy is itself a container
+
+networks:
+  # Planka's Compose default network. Verify the exact name with:
+  #   docker network ls | grep planka
+  # If it differs (e.g. a custom project name), change the key below to match.
+  planka_default:
+    external: true
+
+  # Uncomment together with the `proxy` service network above if nginx/Traefik
+  # runs as a container and should reach planka-mcp by name instead of via host.
+  # proxy:
+  #   external: true
